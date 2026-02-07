@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  credits   Int      @default(50)
+  createdAt DateTime @default(now())
+  notes     Note[]
+  transactions CreditTransaction[]
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  tags      String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  noteId    String
+  role      String   // 'user' or 'assistant'
+  content   String
+  createdAt DateTime @default(now())
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+model CreditTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  type      String   // 'DEDUCTION', 'REFUND', 'GRANT'
+  service   String?  // 'AI_CHAT', 'AI_TAG', etc.
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
