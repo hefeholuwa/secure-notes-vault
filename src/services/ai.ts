@@ -20,7 +20,7 @@ export const generateTags = async (content: string): Promise<string[]> => {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': apiKey,
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -82,7 +82,7 @@ export const askNote = async (noteContent: string, question: string, history: { 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': apiKey,
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
