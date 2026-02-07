@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth.js';
@@ -42,10 +43,20 @@ export const tagNote = async (req: AuthRequest, res: Response) => {
             throw error;
         }
 
-        const tags = await generateTags(note.content);
-        return res.status(200).json({ tags });
+        try {
+            const tags = await generateTags(note.content);
+            return res.status(200).json({ tags });
+        } catch (aiError: any) {
+            // Refund credits if AI fails
+            await refundCredits(userId, 1, 'AI_TAG_FAILURE');
+            throw aiError;
+        }
     } catch (error: any) {
-        console.error('Tag Note Error:', error);
+        const errorLog = `[Tag Note Error] ${new Date().toISOString()}: ${error.stack || error}\n`;
+        console.error(errorLog);
+        try {
+            fs.appendFileSync('debug.log', errorLog);
+        } catch (e) { }
         return res.status(500).json({ error: 'AI Tag generation failed. Please check backend logs.' });
     }
 };
@@ -150,23 +161,28 @@ export const chatWithNote = async (req: AuthRequest, res: Response) => {
             history.pop();
         }
 
-        const response = await askNote(note.content, message, history);
+        let responseContent;
+        try {
+            responseContent = await askNote(note.content, message, history);
+        } catch (aiError: any) {
+            // Refund credits if AI fails
+            await refundCredits(userId, 2, 'AI_CHAT_FAILURE');
+            throw aiError;
+        }
 
         try {
             // Save messages to DB sequentially for better SQLite reliability
-            // We use create instead of createMany to ensure cuid() defaults are handled correctly by Prisma
             await prisma.chatMessage.create({
                 data: { noteId: id, role: 'user', content: message }
             });
             await prisma.chatMessage.create({
-                data: { noteId: id, role: 'assistant', content: response }
+                data: { noteId: id, role: 'assistant', content: responseContent }
             });
         } catch (dbError: any) {
             console.error('Database Chat Persistence Error:', dbError.message);
-            // We still return the response even if persistence fails, but we log the error
         }
 
-        return res.status(200).json({ response });
+        return res.status(200).json({ response: responseContent });
     } catch (error: any) {
         console.error('Chat with Note Controller Error Stack:', error.stack || error);
 

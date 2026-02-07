@@ -9,6 +9,14 @@ export const generateTags = async (content: string): Promise<string[]> => {
 
     try {
         const url = `${BYTEZ_API_URL}/${MISTRAL_MODEL}`;
+
+        // Safety truncation to fit within context window (approx 6k chars for tagging)
+        let processedContent = content;
+        if (content.length > 6000) {
+            console.log(`[AI-Service] Truncating tagging content from ${content.length} to 6000 chars`);
+            processedContent = content.substring(0, 6000) + "... [truncated]";
+        }
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -23,7 +31,7 @@ export const generateTags = async (content: string): Promise<string[]> => {
                     
                     USER TEXT:
                     """
-                    ${content}
+                    ${processedContent}
                     """` }
                 ]
             })
@@ -57,6 +65,13 @@ export const askNote = async (noteContent: string, question: string, history: { 
     try {
         const url = `${BYTEZ_API_URL}/${MISTRAL_MODEL}`;
 
+        // Safety truncation for chat context (approx 15k chars)
+        let processedNote = noteContent;
+        if (noteContent.length > 15000) {
+            console.log(`[AI-Service] Truncating chat context from ${noteContent.length} to 15000 chars`);
+            processedNote = noteContent.substring(0, 15000) + "... [truncated]";
+        }
+
         // Map history to the format expected by the model
         // Limit history to last 10 messages to keep context window manageable
         const mappedHistory = history.slice(-10).map(msg => ({
@@ -81,7 +96,7 @@ export const askNote = async (noteContent: string, question: string, history: { 
                         
                         NOTE CONTENT:
                         """
-                        ${noteContent}
+                        ${processedNote}
                         """`
                     },
                     ...mappedHistory,
